@@ -1,0 +1,3 @@
+Network,Comment,ParentScope,Restricted
+172.17.16.0/20,Lab User Network,Default,TRUE
+172.16.1.0/24,Management Network,Default,TRUE
