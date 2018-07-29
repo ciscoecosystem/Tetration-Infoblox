@@ -11,7 +11,6 @@ infoblox:
 tetration:
   url: https://128.107.220.228                   ## Tetration URL
   credential: credentials.json                   ## Tetration credential json file
-
 # Actions
 actions:
   create_network_filters:                        ## Stream inventory filters to tetration
@@ -27,13 +26,16 @@ actions:
     enabled: True                                ## True or False
     type: 'csv'                                  ## all or csv. csv limits annotations to networks defined within the specified csv.  all annotates all hosts
     view: 'default'                              ## network view to limit filters
+    tetrationVersion: 2.3                        ## Added to Handle API changes from 2.2 to 2.3
+    scopeDependent: True                         ## Apply Annotation to a particular scope
     csvParams:
       importFilename: 'networks.csv'             ## csv filename containing list of networks for creating annotations
       exportFilename: 'infoblox_annotations.csv' ## csv filename for exported annotations sent to tetration
     vrf:
       type: 'static'                             ## static or ea
-      value: 'Infoblox-App'                           ## static value or name of extensible attribute
+      value: 'Infoblox-App'                      ## static value or name of extensible attribute(DEPRECATED 2.3 ONWARDS)
       eaName: 'Tetration-VRF'
+      scope: 'Infoblox-App'                      ## TETRATION VERSION 2.3 AND ABOVE WILL USE SCOPE INSTEAD of VRF
     columns:                                     ## columns for host annotations
       annotate_hostnames:                        ## create annotations for hostnames
         enabled: True                            ## True or False
@@ -53,6 +55,6 @@ actions:
         infobloxName: 'extattrs'                 ## DO NOT MODIFY
         annotationName: 'Infoblox EA'            ## prefix for tetration annotations if not overloading (Full annotation name if overloading is true).  Ex: Infoblox EA-location
         attributeList:                           ## list of attributes to create annotations for
-          #- Location
+          - Location
           - Lifecycle
           - Tetration-VRF
