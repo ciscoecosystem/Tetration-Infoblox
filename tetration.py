@@ -91,7 +91,10 @@ def PushInventoryFilters(rc,inventoryFilters):
 def AnnotateHosts(rc,hosts,params):
     columns = [params["columns"][column] for column in params["columns"] if params["columns"][column]["enabled"] == True]    
     with open(params["csvParams"]["exportFilename"], "wb") as csv_file:
-        fieldnames = ['IP','VRF']
+	if params["tetrationVersion"] >= 2.3 and params["scopeDependent"]:
+            fieldnames = ['IP']
+	else:
+	    fieldnames = ['IP','VRF']
         for column in columns:
             if column["infobloxName"] != 'extattrs':
                 fieldnames.extend([column["annotationName"]])
@@ -106,13 +109,14 @@ def AnnotateHosts(rc,hosts,params):
         for host in hosts:
             hostDict = {}
             hostDict["IP"] = host["ip_address"]
-            if params["vrf"]["type"] == 'static':
+            if params["vrf"]["type"] == 'static' and (params["tetrationVersion"] < 2.3 or not params["scopeDependent"]):
                 hostDict["VRF"] = params["vrf"]["value"]
             else:
                 if params["vrf"]["eaName"] not in host["extattrs"]:
                     print("EA: " + params["vrf"]["eaName"] + "not defined for host: " + host["ip_address"] + " skipping....")
                     continue
-                hostDict["VRF"] = host["extattrs"][params["vrf"]["eaName"]]["value"]
+		if (params["tetrationVersion"] < 2.3 or not params["scopeDependent"]):
+                    hostDict["VRF"] = host["extattrs"][params["vrf"]["eaName"]]["value"]
             for column in columns:
                 if column["infobloxName"] == 'extattrs':
                     for attr in column["attributeList"]:
@@ -129,10 +133,16 @@ def AnnotateHosts(rc,hosts,params):
                 else:
                     hostDict[column["annotationName"]] = ",".join(host[column["infobloxName"]]).split('.')[0] if type(host[column["infobloxName"]]) is list else host[column["infobloxName"]]
             writer.writerow(hostDict)
-    keys = ['IP', 'VRF']
-    req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Key', val=keys), tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
-    resp = rc.upload(params["csvParams"]["exportFilename"], '/assets/cmdb/upload', req_payload)
+    api_endpoint = "/assets/cmdb/upload"
+    if params["tetrationVersion"] >= 2.3:
+	if params["scopeDependent"]:
+            api_endpoint = "/assets/cmdb/upload/" + params["vrf"]["scope"]
+	req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
+    else:
+	keys = ['IP', 'VRF']
+	req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Key', val=keys), tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
+    resp = rc.upload(params["csvParams"]["exportFilename"], api_endpoint, req_payload)
     if resp.status_code != 200:
-        print("Error posting annotations to Tetration cluster")
+        print("Error posting annotations to Tetration cluster"%resp.status_code)
     else:
         print("Successfully posted annotations to Tetration cluster")
