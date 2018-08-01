@@ -191,11 +191,10 @@ def annotate_hosts(params):
                 reader = csv.DictReader(csvFile)
                 for row in reader:
                     # Read all hosts with a name defined
-		    logger.info("Network selected: %s"%row["Network"])
 		    host_obj = conn.get_object('ipv4address',{'network': row["Network"],'names~': '.*','_return_fields': 'network,network_view,names,ip_address,extattrs'})
 		    if host_obj is not None:
                         hosts.extend(host_obj)
-		        print host_obj
+		  
 	except IOError:
 	    logger.error("File %s does not exist. Please follow README steps to generate the file"%params["csvParams"]["importFilename"])
     else:
