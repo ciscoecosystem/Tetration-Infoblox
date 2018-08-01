@@ -1,3 +1,6 @@
+__author__      = "Brandon Beck, Devarshi Shah, Chad Nijim"
+__version__     = "1.0.0"
+
 import os 
 import logging
 #logging.basicConfig(level=logging.DEBUG)
@@ -93,10 +96,14 @@ def import_extensible_attributes(filename,eaName,eaValue):
     networks = []
     logger.debug("Inside import extensible attributes")
     logger.debug("Opening CSV file named:" + filename)
-    with open(filename, "rb") as csvFile:
+    try:
+        with open(filename, "rb") as csvFile:
             reader = csv.DictReader(csvFile)
             for row in reader:
                 networks.append(row)
+    except IOError:
+	logger.error("File %s does not exist. Please follow README steps to generate the file"%filename)
+	return
     url = 'https://' + settings["infoblox"]["host"] + '/wapi/v' + settings["infoblox"]["wapi_version"] + '/'
     s = requests.Session()
     s.auth = HTTPBasicAuth(settings["infoblox"]["username"],settings["infoblox"]["password"])
@@ -156,14 +163,18 @@ def create_network_filters(params):
         logger.info("Creating tetration inventory filters from API")
         inventoryFilters = tetration.CreateInventoryFiltersFromApi(rc,scopes,network_list,params['apiParams'])
     else:
-        with open(params["csvParams"]["filename"], "rb") as csvFile:
-            reader = csv.DictReader(csvFile)
-            for row in reader:
-                logger.info("Getting network:" + row["Network"] + " from infoblox")
-                networks.extend(conn.get_object('network',{'network': row["Network"], 'network_view': row["Network View"]}))
-        network_list = [network for network in networks if 'comment' in network]
-        logger.info("Creating inventory filters from networks in csv: " + params["csvParams"]["filename"])
-        inventoryFilters = tetration.CreateInventoryFiltersFromApi(rc,scopes,params['apiParams'])
+	try:
+            with open(params["csvParams"]["filename"], "rb") as csvFile:
+                reader = csv.DictReader(csvFile)
+                for row in reader:
+                    logger.info("Getting network:" + row["Network"] + " from infoblox")
+                    networks.extend(conn.get_object('network',{'network': row["Network"], 'network_view': row["Network View"]}))
+            network_list = [network for network in networks if 'comment' in network]
+            logger.info("Creating inventory filters from networks in csv: " + params["csvParams"]["filename"])
+            inventoryFilters = tetration.CreateInventoryFiltersFromApi(rc,scopes,params['apiParams'])
+	except IOError:
+	    logger.error("File %s does not exist. Please follow README steps to generate the file"%params["csvParams"]["filename"])	
+	    return
     # Push Filters to Tetration
     logger.info("Pushing filters to tetration")
     tetration.PushInventoryFilters(rc,inventoryFilters)
@@ -175,11 +186,18 @@ def annotate_hosts(params):
     # Read hosts from networks listed in csv
     if params["type"] == 'csv':
         logger.info("Reading network list from csv:" + params["csvParams"]["importFilename"])
-        with open(params["csvParams"]["importFilename"], "rb") as csvFile:
-            reader = csv.DictReader(csvFile)
-            for row in reader:
-                # Read all hosts with a name defined
-                hosts.extend(conn.get_object('ipv4address',{'network': row["Network"], 'names~': '.*', '_return_fields': 'network,network_view,names,ip_address,extattrs'}))
+	try:
+            with open(params["csvParams"]["importFilename"], "rb") as csvFile:
+                reader = csv.DictReader(csvFile)
+                for row in reader:
+                    # Read all hosts with a name defined
+		    logger.info("Network selected: %s"%row["Network"])
+		    host_obj = conn.get_object('ipv4address',{'network': row["Network"],'names~': '.*','_return_fields': 'network,network_view,names,ip_address,extattrs'})
+		    if host_obj is not None:
+                        hosts.extend(host_obj)
+		        print host_obj
+	except IOError:
+	    logger.error("File %s does not exist. Please follow README steps to generate the file"%params["csvParams"]["importFilename"])
     else:
         logger.info("Getting all networks from infoblox for view:" + params["view"])
         networks = conn.get_object('network',{'network_view': params["view"]} if params["view"] != '' else None)
