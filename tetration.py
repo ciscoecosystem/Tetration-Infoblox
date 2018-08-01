@@ -1,3 +1,6 @@
+__author__      = "Brandon Beck, Devarshi Shah, Chad Nijim"
+__version__     = "1.0.0"
+
 from tetpyclient import RestClient
 import tetpyclient
 import json
@@ -54,27 +57,29 @@ def CreateInventoryFiltersFromApi(rc,scopes,network_list,params):
 
 def CreateInventoryFiltersFromCsv(rc,scopes,filename):
     inventoryDict = {}
-    with open(filename) as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            if row['Comment'] not in inventoryDict:
-                inventoryDict[row['Comment']] = {}
-                inventoryDict[row['Comment']]['app_scope_id'] = GetAppScopeId(scopes,row['ParentScope'])
-                inventoryDict[row['Comment']]['name'] = row['Comment']
-                inventoryDict[row['Comment']]['primary'] = row['Restricted'].lower()
-                inventoryDict[row['Comment']]['query'] = {
-                    "type" : "or",
-                    "filters" : []
-                }
-            if inventoryDict[row['Comment']]['app_scope_id'] != GetAppScopeId(scopes,row['ParentScope']):
-                print("Parent scope for {network} does not match previous definition".format(network=row['Network']))
-                continue
-            inventoryDict[row['Comment']]['query']['filters'].append({
-                "type": "subnet",
-                "field": "ip",
-                "value": row['Network']
-            })
-
+    try:
+        with open(filename) as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                if row['Comment'] not in inventoryDict:
+                    inventoryDict[row['Comment']] = {}
+                    inventoryDict[row['Comment']]['app_scope_id'] = GetAppScopeId(scopes,row['ParentScope'])
+                    inventoryDict[row['Comment']]['name'] = row['Comment']
+                    inventoryDict[row['Comment']]['primary'] = row['Restricted'].lower()
+                    inventoryDict[row['Comment']]['query'] = {
+                        "type" : "or",
+                        "filters" : []
+                	}
+            	if inventoryDict[row['Comment']]['app_scope_id'] != GetAppScopeId(scopes,row['ParentScope']):
+                	print("Parent scope for {network} does not match previous definition".format(network=row['Network']))
+                	continue
+            	inventoryDict[row['Comment']]['query']['filters'].append({
+                	"type": "subnet",
+                	"field": "ip",
+                	"value": row['Network']
+            	})
+    except IOError:
+		logger.error("File %s does not exist. Please follow README steps to generate the file"%filename)
     return inventoryDict
 
 def PushInventoryFilters(rc,inventoryFilters):
@@ -137,7 +142,7 @@ def AnnotateHosts(rc,hosts,params):
     if params["tetrationVersion"] >= 2.3:
 	if params["scopeDependent"]:
             api_endpoint = "/assets/cmdb/upload/" + params["vrf"]["scope"]
-	req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
+	    req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
     else:
 	keys = ['IP', 'VRF']
 	req_payload = [tetpyclient.MultiPartOption(key='X-Tetration-Key', val=keys), tetpyclient.MultiPartOption(key='X-Tetration-Oper', val='add')]
